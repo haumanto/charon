@@ -103,7 +103,12 @@ async function jupiterExecute(order, signedTransaction) {
   return res.data;
 }
 
+const SINK_MODE = process.env.CHARON_SINK_MODE === 'true';
+
 export async function executeJupiterSwap({ inputMint, outputMint, amount }) {
+  if (SINK_MODE) {
+    throw new Error('[sink-mode] Jupiter swap blocked — Charon is running as signal-only satellite for Meridian.');
+  }
   const order = await jupiterOrder({ inputMint, outputMint, amount });
   const transaction = orderTransactionBase64(order);
   if (!transaction) throw new Error('Jupiter order did not include a transaction.');
