@@ -9,6 +9,7 @@ import { processCandidateFromSignals, maybeProcessDegenCandidate } from './pipel
 import { sendTelegram } from './telegram/send.js';
 import { makeFailureTracker } from './utils.js';
 import { sinkSignal, startSinkFlusher } from './output/meridianSink.js';
+import { startShadowPoller } from './output/shadowLedger.js';
 
 const SINK_MODE = process.env.CHARON_SINK_MODE === 'true';
 
@@ -57,7 +58,10 @@ export async function startCharon() {
   if (SINK_MODE) seedSinkStrategy();
   initLiveExecution();
   if (!SINK_MODE) setupTelegram();
-  if (SINK_MODE) startSinkFlusher();
+  if (SINK_MODE) {
+    startSinkFlusher();
+    startShadowPoller();
+  }
 
   if (SIGNAL_SERVER_URL) {
     // ── Server mode: fetch signals from signal server ──────────────────────

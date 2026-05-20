@@ -191,6 +191,29 @@ export function initDb() {
       triggered_at_ms INTEGER,
       expires_at_ms INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS shadow_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      base_mint TEXT NOT NULL,
+      symbol TEXT,
+      tier TEXT NOT NULL,
+      sources_json TEXT NOT NULL,
+      min_sources INTEGER NOT NULL DEFAULT 1,
+      consecutive_flags INTEGER NOT NULL DEFAULT 1,
+      has_fee_claim INTEGER NOT NULL DEFAULT 0,
+      emit_at_ms INTEGER NOT NULL,
+      entry_price_usd REAL,
+      entry_mcap_usd REAL,
+      entry_error TEXT,
+      px_1h_usd REAL,
+      px_1h_at_ms INTEGER,
+      px_4h_usd REAL,
+      px_4h_at_ms INTEGER,
+      px_24h_usd REAL,
+      px_24h_at_ms INTEGER,
+      abandoned INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_shadow_trades_mint ON shadow_trades(base_mint, emit_at_ms);
+    CREATE INDEX IF NOT EXISTS idx_shadow_trades_pending ON shadow_trades(emit_at_ms) WHERE abandoned = 0 AND px_24h_at_ms IS NULL;
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON price_alerts(status, expires_at_ms);
     CREATE INDEX IF NOT EXISTS idx_candidates_mint ON candidates(mint);
     CREATE INDEX IF NOT EXISTS idx_positions_status ON dry_run_positions(status);

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { now } from '../utils.js';
+import { recordEmit as shadowRecord } from './shadowLedger.js';
 
 const SINK_PATH = process.env.MERIDIAN_SINK_PATH || '/home/meridian/meridian/data/charon-signals.json';
 const FLUSH_MS = Number(process.env.MERIDIAN_SINK_FLUSH_MS || 15_000);
@@ -134,6 +135,17 @@ export async function sinkSignal(payload) {
       });
     }
     if (at - lastFlushAt >= FLUSH_MS) flush();
+    // Shadow ledger: paper-trade top-tier signals (fire-and-forget — sink path must never block)
+    const entry = buffer.get(payload.mint);
+    shadowRecord({
+      base_mint: payload.mint,
+      symbol: entry?.record?.symbol || null,
+      tier: payload.route,
+      sources: entry?.record?.sources || [],
+      min_sources: entry?.record?.min_sources || 1,
+      consecutive_flags: entry?.count || 1,
+      has_fee_claim: Boolean(payload.fee),
+    }).catch((err) => console.log(`[sink] shadow record failed: ${err.message}`));
   } catch (err) {
     console.log(`[sink] error: ${err.message}`);
   }
