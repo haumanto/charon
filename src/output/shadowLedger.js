@@ -62,9 +62,14 @@ function stmts() {
     pending: db.prepare(`
       SELECT id, base_mint, emit_at_ms, px_1h_at_ms, px_4h_at_ms, px_24h_at_ms
       FROM shadow_trades
-      WHERE abandoned = 0 AND px_24h_at_ms IS NULL
+      WHERE abandoned = 0
+        AND (
+          (px_1h_at_ms  IS NULL AND emit_at_ms <= @now -      3600000) OR
+          (px_4h_at_ms  IS NULL AND emit_at_ms <= @now -     14400000) OR
+          (px_24h_at_ms IS NULL AND emit_at_ms <= @now -     86400000)
+        )
       ORDER BY emit_at_ms ASC
-      LIMIT 200
+      LIMIT 500
     `),
     updates: {
       '1h':  db.prepare(`UPDATE shadow_trades SET px_1h_usd  = ?, px_1h_at_ms  = ? WHERE id = ?`),
@@ -116,7 +121,7 @@ async function snapshotFor(row, window, dueAtMs) {
 
 export async function pollFollowups() {
   try {
-    const rows = stmts().pending.all();
+    const rows = stmts().pending.all({ now: now() });
     let touched = 0, abandoned = 0;
     for (const row of rows) {
       const age = now() - row.emit_at_ms;
