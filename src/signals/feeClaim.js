@@ -64,13 +64,19 @@ async function processLog(logInfo) {
 }
 
 export function startWebsocket() {
-  const wsUrl = SOLANA_WS_URL;
+  // Failover across WS endpoints so one provider flap doesn't blind the fee-claim
+  // feed (our highest-value signal — fee_trending). PUMP_HELIUS_WS_URL is an
+  // optional secondary; unset = single-endpoint behaviour, exactly as before.
+  const endpoints = [SOLANA_WS_URL, process.env.PUMP_HELIUS_WS_URL].filter(Boolean);
+  let epIdx = 0;
   let ws;
   let pingTimer;
   function connect() {
+    const wsUrl = endpoints[epIdx % endpoints.length];
     ws = new WebSocket(wsUrl);
     ws.on('open', () => {
-      console.log('[ws] connected');
+      const which = endpoints.length > 1 ? ('endpoint ' + ((epIdx % endpoints.length) + 1) + '/' + endpoints.length) : 'single';
+      console.log('[ws] connected (' + which + ')');
       for (const [id, program] of [[1, PUMP_PROGRAM], [2, PUMP_AMM]]) {
         ws.send(JSON.stringify({
           jsonrpc: '2.0',
@@ -97,7 +103,9 @@ export function startWebsocket() {
     });
     ws.on('close', () => {
       clearInterval(pingTimer);
-      console.log('[ws] closed, reconnecting in 5s');
+      epIdx += 1; // rotate to the next endpoint on reconnect (no-op if single)
+      const next = endpoints.length > 1 ? (' — failover to endpoint ' + ((epIdx % endpoints.length) + 1) + '/' + endpoints.length) : '';
+      console.log('[ws] closed, reconnecting in 5s' + next);
       setTimeout(connect, 5000);
     });
     ws.on('error', error => console.log(`[ws] ${error.message}`));

@@ -66,6 +66,10 @@ function buildRecord({ mint, route, fee, graduatedCoin, trendingToken }) {
     mcap_usd: mcap,
     volume_24h_usd: volume,
     has_fee_claim: Boolean(fee),
+    // Fee-claim MAGNITUDE (raw SOL distributed) — bigger claim = more LP fee
+    // activity = stronger signal. Emit raw; Meridian's Darwin buckets it from
+    // observed outcomes (no hardcoded tiers). null for non-fee routes.
+    fee_claim_sol: fee?.distributed != null ? Number((Number(fee.distributed) / 1e9).toFixed(4)) : null,
     consecutive_flag_count: 1,
   };
 }
