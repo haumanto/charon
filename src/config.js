@@ -38,6 +38,7 @@ export const ENABLE_LLM = process.env.ENABLE_LLM !== 'false';
 export const SIGNAL_SERVER_URL = process.env.SIGNAL_SERVER_URL || 'http://localhost:3456';
 export const SIGNAL_SERVER_KEY = process.env.SIGNAL_SERVER_KEY || '';
 export const SIGNAL_POLL_MS = Number(process.env.SIGNAL_POLL_MS || 30_000);
+export const SIGNAL_EVENTS_RETENTION_DAYS = Number(process.env.SIGNAL_EVENTS_RETENTION_DAYS || 30); // 2026-06-10 audit: signal_events is a write-only archive (~30K rows/~37MB per day, zero readers) — prune past this age; 0 = keep forever
 
 export const JSON_HEADERS = {
   Accept: 'application/json, text/plain, */*',

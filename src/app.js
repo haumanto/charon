@@ -1,5 +1,5 @@
 import { setDefaultResultOrder } from 'node:dns';
-import { APP_NAME, SIGNAL_SERVER_URL, SIGNAL_POLL_MS, GRADUATED_POLL_MS, TRENDING_POLL_MS, POSITION_CHECK_MS, validateConfig } from './config.js';
+import { APP_NAME, SIGNAL_SERVER_URL, SIGNAL_POLL_MS, GRADUATED_POLL_MS, TRENDING_POLL_MS, POSITION_CHECK_MS, SIGNAL_EVENTS_RETENTION_DAYS, validateConfig } from './config.js';
 import { initDb } from './db/connection.js';
 import { db } from './db/connection.js';
 import { initLiveExecution } from './liveExecutor.js';
@@ -61,6 +61,23 @@ export async function startCharon() {
   if (SINK_MODE) {
     startSinkFlusher();
     startShadowPoller();
+    // signal_events retention (2026-06-10 audit): write-only archive growing
+    // ~30K rows (~37MB) per day with zero readers anywhere in the codebase.
+    // Prune at boot + every 6h. Freed pages are reused, so the DB file stops
+    // growing; a one-time offline VACUUM reclaims the historical bulk.
+    if (SIGNAL_EVENTS_RETENTION_DAYS > 0) {
+      const pruneSignalEvents = () => {
+        try {
+          const cutoff = Date.now() - SIGNAL_EVENTS_RETENTION_DAYS * 86_400_000;
+          const r = db.prepare('DELETE FROM signal_events WHERE at_ms < ?').run(cutoff);
+          if (r.changes > 0) console.log(`[retention] pruned ${r.changes} signal_events rows older than ${SIGNAL_EVENTS_RETENTION_DAYS}d`);
+        } catch (err) {
+          console.log(`[retention] prune failed: ${err.message}`);
+        }
+      };
+      pruneSignalEvents();
+      setInterval(pruneSignalEvents, 6 * 60 * 60 * 1000);
+    }
   }
 
   if (SIGNAL_SERVER_URL) {

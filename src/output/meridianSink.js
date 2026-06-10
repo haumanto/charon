@@ -104,6 +104,20 @@ function flush() {
       consecutive_flag_count: entry.count,
     }))
     .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  // Restart guard (2026-06-10 audit): the buffer is in-memory and dies on every
+  // deploy; the boot-time flush used to clobber a still-valid file with an empty
+  // payload, blanking meridian's charon feed for a poll cycle. If we have nothing
+  // buffered but the existing file's newest signal is still inside TTL, keep it —
+  // meridian applies its own read-side TTL, so a legitimately-dead feed still
+  // ages out there. A genuinely-expired file (newest signal older than TTL)
+  // falls through and gets overwritten with the honest empty payload.
+  if (signals.length === 0) {
+    try {
+      const prev = JSON.parse(fs.readFileSync(SINK_PATH, 'utf8'));
+      const newest = Math.max(0, ...(prev.signals || []).map(sig => Date.parse(sig.seen_at) || 0));
+      if (newest && (now() - newest) < TTL_MS) return;
+    } catch { /* missing/unreadable file — write the empty payload */ }
+  }
   const payload = {
     schema_version: SCHEMA_VERSION,
     generated_at: new Date(now()).toISOString(),
