@@ -23,7 +23,9 @@ export function redactSensitive(text) {
   out = out.replace(PROVIDER_URL_RE, (_match, scheme, host) => `${scheme}${host}/[REDACTED]`);
   out = out.replace(BASE58_RE, (match, _key, offset, fullText) => {
     const before = fullText.slice(Math.max(0, offset - 24), offset);
-    return /tx|sig|solscan/i.test(before) ? match : "[REDACTED-KEY]";
+    // Word-bounded carve-out (meridian review pass 8): bare /sig/ preserved key blobs after
+    // "design"/"signal". Only explicit tx/sig(nature) labels or a solscan /tx/ URL qualify.
+    return /\btx\b|\bsig(?:nature)?s?\b|solscan\.io\/tx\//i.test(before) ? match : "[REDACTED-KEY]";
   });
 
   return out;
