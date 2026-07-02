@@ -11,6 +11,10 @@ export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 export const SOL_MINT = 'So11111111111111111111111111111111111111111';
 
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+// Telegram is OPTIONAL in this deployment (2026-07-02): enabled only when the token LOOKS
+// real (<bot_id>:<35+ char secret>). The placeholder in .env fails this and cleanly disables
+// alerts/commands instead of 401-spamming and killing signal batches mid-processing.
+export const TELEGRAM_ENABLED = /^\d{6,}:[A-Za-z0-9_-]{30,}$/.test(TELEGRAM_BOT_TOKEN || '');
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 export const TELEGRAM_TOPIC_ID = process.env.TELEGRAM_TOPIC_ID;
 export const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
@@ -45,8 +49,11 @@ export const JSON_HEADERS = {
 };
 
 export function validateConfig() {
-  if (!TELEGRAM_BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is required.');
-  if (!TELEGRAM_CHAT_ID) throw new Error('TELEGRAM_CHAT_ID is required.');
+  if (!TELEGRAM_ENABLED) {
+    console.log('[telegram] disabled — no valid bot token configured (by design; alerts/commands off, signal pipeline unaffected)');
+  } else if (!TELEGRAM_CHAT_ID) {
+    throw new Error('TELEGRAM_CHAT_ID is required when a valid TELEGRAM_BOT_TOKEN is set.');
+  }
   if (!HELIUS_API_KEY && (!process.env.SOLANA_RPC_URL || !process.env.SOLANA_WS_URL)) {
     throw new Error('HELIUS_API_KEY is required unless SOLANA_RPC_URL and SOLANA_WS_URL are set.');
   }
